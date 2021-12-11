@@ -796,12 +796,15 @@ def flat_deps(services, with_extends=False):
 ###################
 
 class Podman:
-    def __init__(self, compose, podman_path='podman', dry_run=False):
+    def __init__(self, compose, podman_path='podman', dry_run=False, remote=False):
         self.compose = compose
         self.podman_path = podman_path
         self.dry_run = dry_run
+        self.remote = remote
 
     def output(self, podman_args, cmd='', cmd_args=None):
+        if self.remote:
+            podman_args.insert(0, '-r')
         cmd_args = cmd_args or []
         xargs = self.compose.get_podman_args(cmd) if cmd else []
         cmd_ls = [self.podman_path, *podman_args, cmd] + xargs + cmd_args
@@ -811,6 +814,8 @@ class Podman:
     def run(self, podman_args, cmd='', cmd_args=None, wait=True, sleep=1, obj=None):
         if obj is not None:
             obj.exit_code = None
+        if self.remote:
+            podman_args.insert(0, '-r')
         cmd_args = list(map(str, cmd_args or []))
         xargs = self.compose.get_podman_args(cmd) if cmd else []
         cmd_ls = [self.podman_path, *podman_args, cmd] + xargs + cmd_args
@@ -990,7 +995,7 @@ class PodmanCompose:
                 if args.dry_run == False:
                     sys.stderr.write("Binary {} has not been found.\n".format(podman_path))
                     exit(1)
-        self.podman = Podman(self, podman_path, args.dry_run)
+        self.podman = Podman(self, podman_path, args.dry_run, args.remote)
         if not args.dry_run:
             # just to make sure podman is running
             try:
@@ -1200,6 +1205,8 @@ class PodmanCompose:
         parser.add_argument("-p", "--project-name",
                             help="Specify an alternate project name (default: directory name)",
                             type=str, default=None)
+        parser.add_argument("-r", "--remote",
+                            help="invoke podman with the '-r' remote argument", action='store_true')
         parser.add_argument("--podman-path",
                             help="Specify an alternate path to podman (default: use location in $PATH variable)",
                             type=str, default="podman")
